@@ -183,9 +183,12 @@ func main() {
 	db := connectDBGorm()
 	migrate(db)
 
-	e.Use(middleware.Logger())
-	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.CORS())
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, uri=${uri}, status=${status}, error=${error}\n",
+	}))
+
+	e.Pre(middleware.RemoveTrailingSlash())
 
 	e.POST("/users", Regist(db))
 	e.POST("/login", Login(db))
