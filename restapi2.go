@@ -2,7 +2,9 @@ package main
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -12,6 +14,7 @@ import (
 )
 
 type User struct {
+	gorm.Model
 	Name     string `json:"name" form:"name"`
 	Email    string `json:"email" form:"email"`
 	Password string `json:"password" form:"password"`
@@ -19,6 +22,7 @@ type User struct {
 }
 
 type Vendor struct {
+	gorm.Model
 	Name_co   string `json:"name_co" form:"name_co"`
 	Expedisi  string `json:"expedisi" form:"expedisi"`
 	Transport string `json:"transport" form:"transport"`
@@ -31,6 +35,21 @@ func connectDBGorm() *gorm.DB {
 	dsn := "root:@tcp(127.0.0.1:3306)/restapi_db?charset=utf8mb4&parseTime=True&loc=Local"
 	db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	return db
+}
+
+func GenerateToken(id uint) string {
+	claim := make(jwt.MapClaims)
+	claim["autorized"] = true
+	claim["id"] = id
+	claim["exp"] = time.Now().Add(time.Hour * 1).Unix()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
+
+	str, err := token.SignedString([]byte("kh@k1m"))
+	if err != nil {
+		log.Error(err.Error())
+		return ""
+	}
+	return str
 }
 
 func Regist(db *gorm.DB) echo.HandlerFunc {
@@ -85,9 +104,12 @@ func Login(db *gorm.DB) echo.HandlerFunc {
 			})
 		}
 
+		resToken := GenerateToken(resQry.ID)
+
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "success get specific data",
 			"data":    resQry,
+			"token":   resToken,
 		})
 	}
 }
@@ -176,7 +198,7 @@ func main() {
 		}
 		return true, nil
 	}))
-	e.POST("/vendors", AddVendor(db))
+	e.POST("/vendors", AddVendor(db), middleware.JWT([]byte("kh@k1m")))
 
 	e.Start(":8000") //echo mulai
 
